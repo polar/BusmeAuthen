@@ -31,6 +31,7 @@ import android.app.Activity;
 import android.app.Service;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.os.Binder;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.util.Log;
@@ -55,6 +56,8 @@ import android.util.Log;
 class Authenticator extends AbstractAccountAuthenticator {
     private static final String LOGTAG = "Authenticator";
 
+    static final String ACCOUNT_TYPE = "com.adiron.busme.account";
+    
 	static final String KEY_MUNICIPALITY_URL = "com.adiron.busme.municipality.url";
 	static final String KEY_MUNICIPALITIES = "com.adiron.busme.municipalities";
 	static final String KEY_MUNICIPALITY_URLS = "com.adiron.busme.municipality.urls";
@@ -72,17 +75,17 @@ class Authenticator extends AbstractAccountAuthenticator {
 
     public Authenticator(Service context) {
         super(context);
-        Log.d(LOGTAG, "new Authenticator() for com.adiron.busme");
+        Log.d(LOGTAG, "new Authenticator(uid="+Binder.getCallingUid()+") for com.adiron.busme");
         mContext = context;
     }
 
     @Override
     public Bundle addAccount(AccountAuthenticatorResponse response, String accountType,
             String authTokenType, String[] requiredFeatures, Bundle loginOptions) {
-        Log.d(LOGTAG, "addAccount()");
+        Log.d(LOGTAG, "addAccount(uid=" + Binder.getCallingUid() + ", type=" + accountType + ", tokenType=" + authTokenType + ")");
 
 		SharedPreferences prefs = mContext.getSharedPreferences(PREFERENCES_NAME, Activity.MODE_PRIVATE);
-		String muniUrlString = prefs.getString(PREF_MUNICIPALITIES, "[[\"Syracuse\",\"http://localhost:3000/muni_admins/sign_in?master_id=4f69cdf5a0490542ec000311\"]]");
+		String muniUrlString = prefs.getString(PREF_MUNICIPALITIES, "[[\"Syracuse\",\"http://192.168.99.2:3000/muni_admins/sign_in?master_id=4f69cdf5a0490542ec000311\"]]");
 		ArrayList<String> municipalities = new ArrayList<String>();
 		ArrayList<String> municipalityUrls = new ArrayList<String>();
 		try {

@@ -17,7 +17,11 @@
 package com.adiron.busme.authen;
 
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.UnsupportedEncodingException;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.ArrayList;
 
 import org.apache.http.Header;
@@ -27,16 +31,21 @@ import org.apache.http.NameValuePair;
 import org.apache.http.client.ClientProtocolException;
 import org.apache.http.client.HttpClient;
 import org.apache.http.client.entity.UrlEncodedFormEntity;
+import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.protocol.BasicHttpContext;
+import org.xmlpull.v1.XmlPullParser;
+import org.xmlpull.v1.XmlPullParserException;
+import org.xmlpull.v1.XmlPullParserFactory;
 
 import android.accounts.Account;
 import android.accounts.AccountManager;
 import android.app.Activity;
 import android.content.Intent;
 import android.os.AsyncTask;
+import android.os.Binder;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
@@ -56,8 +65,8 @@ public class CheckingAccountActivity extends Activity {
 	public final static int RESULT_AUTHENTICATION_FAILED = RESULT_FIRST_USER + 0;
 	public final static int RESULT_SERVER_FAILED = RESULT_FIRST_USER + 1;
 
-	private static final String PARAM_LOGIN = "muni_user[name]";
-	private static final String PARAM_PASSWORD = "muni_user[password]";
+	private static final String PARAM_LOGIN = "muni_admin[email]";
+	private static final String PARAM_PASSWORD = "muni_admin[password]";
 
 	private AccountManager accountManager;
 	private UserLoginTask mAuthTask;
@@ -72,6 +81,10 @@ public class CheckingAccountActivity extends Activity {
 
 	private String currentAuthToken;
 
+	private String csrfParam;
+
+	private String csrfToken;
+
     /**
      * {@inheritDoc}
      */
@@ -80,6 +93,7 @@ public class CheckingAccountActivity extends Activity {
         Log.i(LOGTAG, "onCreate(" + icicle + ")");
         super.onCreate(icicle);
         accountManager = AccountManager.get(this);
+		Log.d(LOGTAG, "CheckingAccountActivity(pid="+Binder.getCallingPid()+", uid="+Binder.getCallingUid()+")");
 
         requestWindowFeature(Window.FEATURE_LEFT_ICON);
         setContentView(R.layout.check_activity);
@@ -96,22 +110,29 @@ public class CheckingAccountActivity extends Activity {
 		
 		Intent intent = getIntent();
 		String login = intent.getStringExtra(AccountManager.KEY_ACCOUNT_NAME);
+		String municipalityUrl = intent.getStringExtra(Authenticator.KEY_MUNICIPALITY_URL);
 
 		Account account = null;
-		Account[] accounts = accountManager.getAccountsByType(Constants.ACCOUNT_TYPE);
+		Account[] accounts = accountManager.getAccountsByType(Authenticator.ACCOUNT_TYPE);
+		Log.d(LOGTAG, "CheckingAccountActivity(pid="+Binder.getCallingPid()+", uid="+Binder.getCallingUid()+") found " + accounts.length + " accounts");
 		for(Account a : accounts) {
-			if (a.name.equals(login)) {
+			Log.d(LOGTAG, "CheckingAccountActivity.looking at (name="+a.name+", type="+a.type+")");
+			String muniUrl = accountManager.getUserData(a, Authenticator.KEY_MUNICIPALITY_URL);
+			Log.d(LOGTAG, "CheckingAccountActivity.and got (name="+a.name+", type="+a.type+", url="+muniUrl+")");
+			if (a.name.equals(login) && municipalityUrl.equals(muniUrl)) {
 				account = a;
 			}
 		}
 		if (account != null) {
+
+			Log.d(LOGTAG, "CheckingAccountActivity(uid="+Binder.getCallingUid()+", name="+account.name+", type="+account.type+")");
 			initializeHttpClient();
 			
 			String municipality = accountManager.getUserData(account, Authenticator.KEY_MUNICIPALITY_URL);
 			municipalityView.setText(municipality);
 			
 			mAuthTask = new UserLoginTask(account);
-			mAuthTask.doInBackground(municipality);
+			mAuthTask.execute(municipality);
 		} else {
 			Toast.makeText(this, R.string.check_activity_account_not_found_message, Toast.LENGTH_LONG);
 			setResult(RESULT_CANCELED);
@@ -139,19 +160,13 @@ public class CheckingAccountActivity extends Activity {
     	super.onPause();
     }
     
-    public void onAuthenticationResult(Account account, Boolean success) {
-        Log.i(LOGTAG, "onAuthenticationResult(" + account.name + ", " + success + ")");
+    public void onAuthenticationResult(Account account, int result) {
+        Log.i(LOGTAG, "onAuthenticationResult(" + account.name + ", " + result + ")");
 
         // Our task is complete, so clear it out
         mAuthTask = null;
 
-        if (success) {
-            Log.e(LOGTAG, "onAuthenticationResult: authenticated and stored auth token");
-            this.setResult(RESULT_OK);
-        } else {
-            Log.e(LOGTAG, "onAuthenticationResult: failed to authenticate");
-            this.setResult(RESULT_AUTHENTICATION_FAILED);
-        }
+        this.setResult(result);
         this.finish();
     }
 
@@ -165,7 +180,7 @@ public class CheckingAccountActivity extends Activity {
         this.finish();
     }
 
-    private class UserLoginTask extends AsyncTask<String, Void, Boolean> {
+    private class UserLoginTask extends AsyncTask<String, Void, Integer> {
     	Account account;
     	
     	UserLoginTask(Account account) {
@@ -173,20 +188,25 @@ public class CheckingAccountActivity extends Activity {
     	}
     	
         @Override
-        protected Boolean doInBackground(String... params) {
+        protected Integer doInBackground(String... params) {
             try {
             	// We can get this from the account, but we pass it in.
-            	String municipality = params[0];
-    			return login(account, "http://localhost:3000/municipalities/"+municipality+"/sign_in");
-            } catch (Exception ex) {
+            	String municipalityUrl = params[0];
+    			login(account, municipalityUrl);
+    			return RESULT_OK;
+            } catch (SecurityException e1) {
+            	Log.i(LOGTAG, "UserLoginTask.doInBackgroun: Failed to Authenticate at server.");
+            	return RESULT_AUTHENTICATION_FAILED;
+            } catch (IOException ex) {
                 Log.e(LOGTAG, "UserLoginTask.doInBackground: failed to authenticate");
                 Log.i(LOGTAG, ex.toString());
-                return false;
+                return RESULT_SERVER_FAILED;
             }
         }
 
         @Override
-        protected void onPostExecute(final Boolean success) {
+        protected void onPostExecute(final Integer success) {
+			Log.d(LOGTAG, "login postExcecute returns " + success);
             onAuthenticationResult(account, success);
         }
 
@@ -203,13 +223,82 @@ public class CheckingAccountActivity extends Activity {
 		  return httpClient = httpclient;
 	}
 
-	public boolean login(Account account, String url) throws ClientProtocolException, IOException {
-		Log.d(LOGTAG, "LOGIN URL: " + url);
+	private void getCSRFToken(String url) throws ClientProtocolException, IOException, XmlPullParserException {
+		HttpGet request = new HttpGet(url);
+		HttpResponse resp = httpClient.execute(request, localHttpContext);
+		Header[] headers = resp.getAllHeaders();
+		for (Header h : headers) {
+			Log.d(LOGTAG, "Header: " + h.getName() + " " + h.getValue());
+		}
+		HttpEntity ent = resp.getEntity();
+		InputStream in = ent.getContent();
+		XmlPullParserFactory parserF = XmlPullParserFactory.newInstance();
+		XmlPullParser parser = parserF.newPullParser();
+		parser.setInput(new InputStreamReader(in));
+		//parser.setFeature(XmlPullParser.FEATURE_PROCESS_DOCDECL, false);
+		parser.next();
+		boolean inHead = false;
+		while(parser.getEventType() != XmlPullParser.END_DOCUMENT && (csrfParam == null || csrfToken == null)) {
+			if (parser.getEventType() == XmlPullParser.START_TAG) {
+				if ("head".equalsIgnoreCase(parser.getName())) {
+					inHead = true;
+				} else if (inHead &&  "meta".equalsIgnoreCase(parser.getName())) {
+					if ("csrf-param".equals(parser.getAttributeValue(null, "name"))) {
+						csrfParam = parser.getAttributeValue(null, "content");
+					} else if ("csrf-token".equals(parser.getAttributeValue(null, "name"))) {
+						csrfToken = parser.getAttributeValue(null, "content");
+					}
+				}
+			}
+			parser.next();
+		}
+		ent.consumeContent();
+		if (csrfParam == null || csrfToken == null) {
+			throw new XmlPullParserException("No CSRF Token");
+		}
+	}
+	
+	private String changeType(String url, String newType) throws MalformedURLException {
+		URL nurl = new URL(url);
+		String path = nurl.getPath();
+		String query = nurl.getQuery();
+		String proto = nurl.getProtocol();
+		int port = nurl.getPort();
+		String host = nurl.getHost();
+		String auth = nurl.getAuthority();
+		
+		int typeIdx = path.lastIndexOf(".");
+		String type = (typeIdx < 0 ? null : path.substring(typeIdx +1));
+		path = (typeIdx < 0 ? path : path.substring(0,typeIdx));
+		
+		type = newType;
+		
+		StringBuilder sb = new StringBuilder();
+		sb.append(proto == null ? "http" : proto);
+		sb.append("://");
+		sb.append(host);
+		sb.append(port < 0 ? "" : ":" + port);
+		sb.append(auth == null ? "" : "@" + auth);
+		sb.append(path == null ? "/" : "/" + path);
+		sb.append(type == null ? "" : "." + type);
+		sb.append(query == null ? "" : "?" + query);
+		
+		return new URL(sb.toString()).toExternalForm();
+	}
+	
+	public void login(Account account, String url) throws ClientProtocolException, IOException, SecurityException {
+		Log.d(LOGTAG, "CheckingAccountActivity.login(uid="+Binder.getCallingUid()+", name="+account.name+", type="+account.type+", url="+url+")");
 
 		// TODO: The password should be encrypted.
 		String password = accountManager.getPassword(account);
 		
 		final ArrayList<NameValuePair> params = new ArrayList<NameValuePair>();
+		try {
+			getCSRFToken(url);
+			params.add(new BasicNameValuePair(csrfParam, csrfToken));
+		} catch (XmlPullParserException e1) {
+			throw new IOException(e1.getMessage());
+		}
 		params.add(new BasicNameValuePair(PARAM_LOGIN, account.name));
 		params.add(new BasicNameValuePair(PARAM_PASSWORD, password));
 		HttpEntity entity;
@@ -219,7 +308,8 @@ public class CheckingAccountActivity extends Activity {
 			// this should never happen.
 			throw new IllegalStateException(e);
 		}
-		HttpPost request = new HttpPost(url);
+		
+		HttpPost request = new HttpPost(changeType(url, "json"));
 		request.setEntity(entity);
 		HttpResponse resp = httpClient.execute(request,localHttpContext);
 		Header[] headers = resp.getAllHeaders();
@@ -228,15 +318,15 @@ public class CheckingAccountActivity extends Activity {
 		}
 		HttpEntity ent = resp.getEntity();
 		ent.consumeContent();
-		if (400 > resp.getStatusLine().getStatusCode()) {
-			return false;
+		Log.d(LOGTAG, resp.getStatusLine().getStatusCode() + " " + resp.getStatusLine().getReasonPhrase());
+		if (400 <= resp.getStatusLine().getStatusCode()) {
+			throw new SecurityException("Authentication Failed.");
 		} else {
-			return findAndStoreAuthToken(account, headers);
+			findAndStoreAuthToken(account, headers);
 		}
 	}
 	
-	private boolean findAndStoreAuthToken(Account account, Header[] headers) {
-		boolean found = false;
+	private void findAndStoreAuthToken(Account account, Header[] headers) {
 		for (Header h : headers) {
 			// We must go through them all because there could be multiple
 			// set-cookie for the same cookie. In fact, some version of Rails, puts a 
@@ -251,14 +341,12 @@ public class CheckingAccountActivity extends Activity {
 					// This should never happen.
 					Log.d(LOGTAG, "Logged in with right token");
 				} else {
-					found = true;
 					Log.d(LOGTAG, "We must replace auth_token " + splits[0]);
 					currentAuthToken = splits[0];
 					accountManager.setAuthToken(account, Constants.AUTHTOKEN_TYPE, currentAuthToken);
 				}
 			}
 		}
-		return found;
 	}
 
 }

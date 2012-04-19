@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <account-authenticator xmlns:android="http://schemas.android.com/apk/res/android"
-    android:accountType="com.adiron.busme"
+    android:accountType="com.adiron.busme.account"
     android:icon="@drawable/busarrow"
     android:smallIcon="@drawable/person"
     android:label="@string/authenticator_label"

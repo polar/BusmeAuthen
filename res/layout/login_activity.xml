@@ -94,7 +94,7 @@
                 android:password="true"
                 android:scrollHorizontally="true"
                 android:singleLine="true"
-                android:text="test" />
+                android:text="" />
 
             <LinearLayout
                 android:id="@+id/buttons_center_layout"

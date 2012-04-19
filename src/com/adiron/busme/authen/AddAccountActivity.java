@@ -22,6 +22,7 @@ import android.accounts.Account;
 import android.accounts.AccountAuthenticatorActivity;
 import android.accounts.AccountManager;
 import android.content.Intent;
+import android.os.Binder;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
@@ -108,13 +109,15 @@ public class AddAccountActivity extends AccountAuthenticatorActivity {
             
 			final Bundle accountData = new Bundle();
 			accountData.putString(Authenticator.KEY_MUNICIPALITY_URL, municipalityUrl);
-			final Account account = new Account(username, Constants.ACCOUNT_TYPE);
+			final Account account = new Account(username, Authenticator.ACCOUNT_TYPE);
+			Log.d(LOGTAG, "Adding AccountExplicity(uid="+Binder.getCallingUid()+", name="+account.name+", type="+account.type+", url="+municipalityUrl);
 			accountManager.addAccountExplicitly(account, password, accountData);
 			
 			Intent intent = new Intent(AddAccountActivity.this, CheckingAccountActivity.class);
-			intent.putExtra(Authenticator.KEY_MUNICIPALITY_URL, municipalityUrl);
-			intent.putExtra(AccountManager.KEY_ACCOUNT_NAME, username);
-			
+			intent.putExtra(AccountManager.KEY_ACCOUNT_NAME, account.name);
+			intent.putExtra(Authenticator.KEY_MUNICIPALITY_URL, accountManager.getUserData(account, Authenticator.KEY_MUNICIPALITY_URL));
+
+			Log.d(LOGTAG, "Starting CheckingAccountActivity(pid="+Binder.getCallingPid()+", uid="+Binder.getCallingUid()+", name="+account.name+", url="+accountManager.getUserData(account, Authenticator.KEY_MUNICIPALITY_URL));
 			AddAccountActivity.this.startActivityForResult(intent, 100);
 		}
 	}
