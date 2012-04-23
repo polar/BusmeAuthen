@@ -1,19 +1,3 @@
-/*
- * Copyright (C) 2010 The Android Open Source Project
- *
- * Licensed under the Apache License, Version 2.0 (the "License"); you may not
- * use this file except in compliance with the License. You may obtain a copy of
- * the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
- * License for the specific language governing permissions and limitations under
- * the License.
- */
-
 package com.adiron.busme.authen;
 
 import java.util.ArrayList;
@@ -37,28 +21,45 @@ import android.widget.TextView;
 import com.appsolut.adapter.collections.CollectionsAdapter;
 
 /**
- * Activity which displays login screen to the user.
+ * This activity gets information from the user and creates
+ * a Busme Account for a particular Municipality if it authenticates.
+ * 
+ * Once it collects the required information from the user, this activity
+ * invokes another activity, which the user can cancel, that goes off
+ * to the authentication server to check the email/password combination.
  */
 public class AddAccountActivity extends AccountAuthenticatorActivity {
 	private final static String LOGTAG = AddAccountActivity.class.getName();
+	
+	// GUI
+	private TextView messageView;
+    private EditText passwordEditText;
+    private EditText emailEditText;
+    private Button performButton;
+    private Button cancelButton;
+	private TextView bottomMessageView;
+	private Spinner municipalitySpinner;
+
+	// Given Data
+	private ArrayList<String> municipalities;
+	private ArrayList<String> municipalityUrls;
 
 	private AccountManager accountManager;
 	
-	private TextView messageView;
-    private EditText passwordEditText;
+	// The following fields contains data received from the user or 
+	// derived from input. 
+	
+	// The accountName becomes the name of the selected municipality.
+	// There is only at most one Busme account per municipality name.
+	private Account account;
+	private String accountName;
+	private Bundle accountData;
+	private String accountPassword;
+	private String accountEmail;
+	private String municipalityName;
+	private String municipalityUrl;
 
-    private EditText emailEditText;
-    
-    private Button performButton;
-    private Button cancelButton;
-
-	private TextView bottomMessageView;
-
-	private Spinner municipalitySpinner;
-
-	private ArrayList<String> municipalities;
-
-	private ArrayList<String> municipalityUrls;
+	private Object authenticatorAction;
 
     /**
      * {@inheritDoc}
@@ -67,7 +68,6 @@ public class AddAccountActivity extends AccountAuthenticatorActivity {
     public void onCreate(Bundle icicle) {
         Log.i(LOGTAG, "onCreate(" + icicle + ")");
         super.onCreate(icicle);
-        accountManager = AccountManager.get(this);
 
         requestWindowFeature(Window.FEATURE_LEFT_ICON);
         setContentView(R.layout.login_activity);
@@ -75,62 +75,153 @@ public class AddAccountActivity extends AccountAuthenticatorActivity {
         getWindow().setFeatureDrawableResource(
                 Window.FEATURE_LEFT_ICON, android.R.drawable.ic_input_add);
 
-        // We are handed a list of available municipality ids from the Authenticator.
-        municipalities = getIntent().getStringArrayListExtra(Authenticator.KEY_MUNICIPALITIES);
-        municipalityUrls = getIntent().getStringArrayListExtra(Authenticator.KEY_MUNICIPALITY_URLS);
-        municipalitySpinner = (Spinner) findViewById(R.id.municipalitySpinner);
+        Intent intent = getIntent();
         
+        // We are handed a list of available municipality names from the Authenticator
+        // and their corresponding login URLs that the authenticator knows how to handle.
+        // If we are updating credentials, both will contain a list of only one value.
+        municipalities = intent.getStringArrayListExtra(Authenticator.KEY_MUNICIPALITIES);
+        municipalityUrls = getIntent().getStringArrayListExtra(Authenticator.KEY_MUNICIPALITY_URLS);
+        authenticatorAction = intent.getStringExtra(Authenticator.KEY_AUTHENTICATOR_ACTION);
+        // If we are updating credentials, the email should be there.
+        accountEmail = intent.getStringExtra(Authenticator.KEY_ACCOUNT_EMAIL);
+        
+        // GUI
+        municipalitySpinner = (Spinner) findViewById(R.id.municipalitySpinner);
         messageView = (TextView) findViewById(R.id.messageView);
+        
         performButton = (Button) findViewById(R.id.performButton);
+        if (Authenticator.ACTION_ADD_ACCOUNT.equals(authenticatorAction)) {
+        	performButton.setText(R.string.login_activity_perform_button_add);
+        } else if (Authenticator.ACTION_UPDATE_ACCOUNT.equals(authenticatorAction)) {
+        	performButton.setText(R.string.login_activity_perform_button_update);
+        }
+        
         cancelButton = (Button) findViewById(R.id.cancelButton);
         emailEditText = (EditText) findViewById(R.id.emailEditText);
+        if (accountEmail != null) {
+        	emailEditText.setText(accountEmail);
+        }
         passwordEditText = (EditText) findViewById(R.id.passwordEditText);
         bottomMessageView = (TextView) findViewById(R.id.message_bottom);
-        
 
+        // GUI Data
         SpinnerAdapter adapter = new CollectionsAdapter<String>(this, R.layout.login_activity_spinner_text_view, municipalities);
         municipalitySpinner.setAdapter(adapter);
         messageView.setText(R.string.login_activity_message_add_account);
         bottomMessageView.setText(R.string.login_acitivity_bottom_message_instructions);
         
+        // GUI Functionality
         performButton.setOnClickListener(new PerformClickListener());
 		cancelButton.setOnClickListener(new CancelClickListener());
+		
+		// We need the AccountManager at some point
+        accountManager = AccountManager.get(this);
     }
     
+    /**
+     * This listener applies to a click on the performButton (Add Account).
+     */
 	private class PerformClickListener implements OnClickListener
 	{
-
 		@Override public void onClick(View pView)
 		{
-			final String username = emailEditText.getText().toString();
-			final String password = passwordEditText.getText().toString();
 			final int municipalityIdx = municipalitySpinner.getSelectedItemPosition();
-            final String municipalityUrl = municipalityUrls.get(municipalityIdx);
+            municipalityName = municipalities.get(municipalityIdx);
+            municipalityUrl = municipalityUrls.get(municipalityIdx);
             
-			final Bundle accountData = new Bundle();
+			accountEmail = emailEditText.getText().toString();
+			accountPassword = passwordEditText.getText().toString();
+            
+			accountData = new Bundle();
 			accountData.putString(Authenticator.KEY_MUNICIPALITY_URL, municipalityUrl);
-			final Account account = new Account(username, Authenticator.ACCOUNT_TYPE);
-			Log.d(LOGTAG, "Adding AccountExplicity(uid="+Binder.getCallingUid()+", name="+account.name+", type="+account.type+", url="+municipalityUrl);
-			accountManager.addAccountExplicitly(account, password, accountData);
+			accountData.putString(Authenticator.KEY_MUNICIPALITY_NAME, municipalityName);
+			accountData.putString(Authenticator.KEY_ACCOUNT_EMAIL, accountEmail);
 			
+			// The account name as far as Android goes is the municipality name.
+			accountName = municipalityName; // May not be unique enough.
+			
+			account = new Account(accountName, Authenticator.ACCOUNT_TYPE);
+			// Okay its not proper to do it here, only after we check every thing
+			// because there is no way to explicitly remove it. Therefore we must
+			// transfer all information to the Checking Activity in an Intent.
+			//accountManager.addAccountExplicitly(account, password, accountData);
+			// We must wait until confirmation to add an account to the AccountManager.
+			
+			// Set up and activity to check the credentials before adding this account
+			// to the AccountManager.
 			Intent intent = new Intent(AddAccountActivity.this, CheckingAccountActivity.class);
-			intent.putExtra(AccountManager.KEY_ACCOUNT_NAME, account.name);
-			intent.putExtra(Authenticator.KEY_MUNICIPALITY_URL, accountManager.getUserData(account, Authenticator.KEY_MUNICIPALITY_URL));
+			intent.putExtra(AccountManager.KEY_ACCOUNT_NAME, accountName);
+			intent.putExtra(Authenticator.KEY_ACCOUNT_EMAIL, accountEmail);
+			
+			//TODO: I wonder if passing the password in an Intent is unsafe, i.e. reading the process table?
+			intent.putExtra(AccountManager.KEY_PASSWORD, accountPassword);
+			intent.putExtra(AccountManager.KEY_ACCOUNT_TYPE, Authenticator.ACCOUNT_TYPE);
+	        intent.putExtra(Authenticator.KEY_MUNICIPALITY_NAME, municipalityName);
+	        intent.putExtra(Authenticator.KEY_MUNICIPALITY_URL, municipalityUrl);
 
-			Log.d(LOGTAG, "Starting CheckingAccountActivity(pid="+Binder.getCallingPid()+", uid="+Binder.getCallingUid()+", name="+account.name+", url="+accountManager.getUserData(account, Authenticator.KEY_MUNICIPALITY_URL));
+			Log.d(LOGTAG, "Starting CheckingAccountActivity(pid="+Binder.getCallingPid()+
+					", uid="+Binder.getCallingUid()+", name="+account.name+
+					", url="+accountManager.getUserData(account, Authenticator.KEY_MUNICIPALITY_URL)+
+					", muniName="+accountManager.getUserData(account, Authenticator.KEY_MUNICIPALITY_NAME));
 			AddAccountActivity.this.startActivityForResult(intent, 100);
 		}
 	}
 	
 	protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+		Log.d(LOGTAG, "onActivityResult(requestCode=" + requestCode
+				+ ", resultCode=" + resultCode + ", data=" + data);
 		Bundle result = new Bundle();
+
+		// Activity canceled by user.
 		if (resultCode == CheckingAccountActivity.RESULT_CANCELED) {
-			AddAccountActivity.this.setAccountAuthenticatorResult(null);
-		} else if (resultCode == CheckingAccountActivity.RESULT_SERVER_FAILED) {
-			result.putBoolean(AccountManager.KEY_BOOLEAN_RESULT, false);
+			Log.d(LOGTAG, "CheckAcountActivity returns RESULT_CANCELED");
+			result.putInt(AccountManager.KEY_ERROR_CODE,
+					AccountManager.ERROR_CODE_CANCELED);
+			result.putString(AccountManager.KEY_ERROR_MESSAGE,
+					"Add Account Canceled");
 			AddAccountActivity.this.setAccountAuthenticatorResult(result);
-		} else if (resultCode == CheckingAccountActivity.RESULT_OK) {
-			result.putBoolean(AccountManager.KEY_BOOLEAN_RESULT, true);
+		}
+		// Could not contact the authentication server or some other IO error.
+		else if (resultCode == CheckingAccountActivity.RESULT_SERVER_FAILED) {
+			Log.d(LOGTAG, "CheckAcountActivity returns RESULT_SERVER_FAILED");
+			result.putInt(AccountManager.KEY_ERROR_CODE,
+					data.getIntExtra(AccountManager.KEY_ERROR_CODE, 0));
+			result.putString(AccountManager.KEY_ERROR_MESSAGE,
+					data.getStringExtra(AccountManager.KEY_ERROR_MESSAGE));
+			AddAccountActivity.this.setAccountAuthenticatorResult(result);
+		}
+		// The authentication failed on the server side.
+		else if (resultCode == CheckingAccountActivity.RESULT_AUTHENTICATION_FAILED) {
+			Log.d(LOGTAG,
+					"CheckAcountActivity returns RESULT_AUTHENTICATION_FAILED");
+			result.putInt(AccountManager.KEY_ERROR_CODE,
+					data.getIntExtra(AccountManager.KEY_ERROR_CODE, 0));
+			result.putString(AccountManager.KEY_ERROR_MESSAGE,
+					data.getStringExtra(AccountManager.KEY_ERROR_MESSAGE));
+			AddAccountActivity.this.setAccountAuthenticatorResult(null);
+
+		}
+		// The authentication was successful. Add the account and its AuthToken.
+		else if (resultCode == CheckingAccountActivity.RESULT_OK) {
+			Log.d(LOGTAG, "CheckAcountActivity returns RESULT_OK");
+
+			// It seems whether we are adding or updating this call works just as
+			// well. I assume that if we had other data, we may want to look it up
+			// first.
+			String authToken = data
+					.getStringExtra(AccountManager.KEY_AUTHTOKEN);
+			// We are adding the account
+			accountManager.addAccountExplicitly(account, accountPassword,
+					accountData);
+			accountManager.setAuthToken(account, Authenticator.AUTHTOKEN_TYPE,
+					authToken);
+
+			// Required response by Android Framework.
+			result.putString(AccountManager.KEY_ACCOUNT_NAME,
+					data.getStringExtra(AccountManager.KEY_ACCOUNT_NAME));
+			result.putString(AccountManager.KEY_ACCOUNT_TYPE,
+					data.getStringExtra(AccountManager.KEY_ACCOUNT_TYPE));
 			AddAccountActivity.this.setAccountAuthenticatorResult(result);
 		}
 		AddAccountActivity.this.finish();
@@ -140,227 +231,9 @@ public class AddAccountActivity extends AccountAuthenticatorActivity {
 	{
 		@Override public void onClick(View pView)
 		{
-			// Will send ERROR_CODE_CANCELED.
+			// Using null here sends ERROR_CODE_CANCELED as per Android Fremwork documentation.
 			AddAccountActivity.this.setAccountAuthenticatorResult(null);
 			AddAccountActivity.this.finish();
 		}
 	}
-//    /*
-//     * {@inheritDoc}
-//     */
-//    @Override
-//    protected Dialog onCreateDialog(int id) {
-//        final ProgressDialog dialog = new ProgressDialog(this);
-//        dialog.setMessage(getText(R.string.ui_activity_authenticating));
-//        dialog.setIndeterminate(true);
-//        dialog.setCancelable(true);
-//        dialog.setOnCancelListener(new DialogInterface.OnCancelListener() {
-//            public void onCancel(DialogInterface dialog) {
-//                Log.i(LOGTAG, "user cancelling authentication");
-//                if (mAuthTask != null) {
-//                    mAuthTask.cancel(true);
-//                }
-//            }
-//        });
-//        // We save off the progress dialog in a field so that we can dismiss
-//        // it later. We can't just call dismissDialog(0) because the system
-//        // can lose track of our dialog if there's an orientation change.
-//        mProgressDialog = dialog;
-//        return dialog;
-//    }
-
-    @Override
-    protected void onResume() {
-    	super.onResume();
-    }
-    
-    @Override
-    protected void onPause() {
-    	super.onPause();
-    }
-    
-//    /**
-//     * Handles onClick event on the Submit button. Sends username/password to
-//     * the server for authentication. The button is configured to call
-//     * handleLogin() in the layout XML.
-//     *
-//     * @param view The Submit button for which this method is invoked
-//     */
-//    public void handleLogin(View view) {
-//        if (mRequestNewAccount) {
-//            mUsername = usernameEditText.getText().toString();
-//        }
-//        mPassword = passwordEditText.getText().toString();
-//        if (TextUtils.isEmpty(mUsername) || TextUtils.isEmpty(mPassword)) {
-//            messageView.setText(getMessage());
-//        } else {
-//            // Show a progress dialog, and kick off a background task to perform
-//            // the user login attempt.
-//            showProgress();
-//            mAuthTask = new UserLoginTask();
-//            mAuthTask.execute();
-//        }
-//    }
-//
-//    /**
-//     * Called when response is received from the server for confirm credentials
-//     * request. See onAuthenticationResult(). Sets the
-//     * AccountAuthenticatorResult which is sent back to the caller.
-//     *
-//     * @param result the confirmCredentials result.
-//     */
-//    private void finishConfirmCredentials(boolean result) {
-//        Log.i(LOGTAG, "finishConfirmCredentials()");
-//        final Account account = new Account(mUsername, Constants.ACCOUNT_TYPE);
-//        mAccountManager.setPassword(account, mPassword);
-//        final Intent intent = new Intent();
-//        intent.putExtra(AccountManager.KEY_BOOLEAN_RESULT, result);
-//        setAccountAuthenticatorResult(intent.getExtras());
-//        setResult(RESULT_OK, intent);
-//        finish();
-//    }
-//
-//    /**
-//     * Called when response is received from the server for authentication
-//     * request. See onAuthenticationResult(). Sets the
-//     * AccountAuthenticatorResult which is sent back to the caller. We store the
-//     * authToken that's returned from the server as the 'password' for this
-//     * account - so we're never storing the user's actual password locally.
-//     *
-//     * @param result the confirmCredentials result.
-//     */
-//    private void finishLogin(String authToken) {
-//
-//        Log.i(LOGTAG, "finishLogin()");
-//        final Account account = new Account(mUsername, Constants.ACCOUNT_TYPE);
-//        if (mRequestNewAccount) {
-//            mAccountManager.addAccountExplicitly(account, mPassword, null);
-//        } else {
-//            mAccountManager.setPassword(account, mPassword);
-//        }
-//        final Intent intent = new Intent();
-//        intent.putExtra(AccountManager.KEY_ACCOUNT_NAME, mUsername);
-//        intent.putExtra(AccountManager.KEY_ACCOUNT_TYPE, Constants.ACCOUNT_TYPE);
-//        setAccountAuthenticatorResult(intent.getExtras());
-//        setResult(RESULT_OK, intent);
-//        finish();
-//    }
-//
-//    /**
-//     * Called when the authentication process completes (see attemptLogin()).
-//     *
-//     * @param authToken the authentication token returned by the server, or NULL if
-//     *            authentication failed.
-//     */
-//    public void onAuthenticationResult(String authToken) {
-//
-//        boolean success = ((authToken != null) && (authToken.length() > 0));
-//        Log.i(LOGTAG, "onAuthenticationResult(" + success + ")");
-//
-//        // Our task is complete, so clear it out
-//        mAuthTask = null;
-//
-//        // Hide the progress dialog
-//        hideProgress();
-//
-//        if (success) {
-//            if (!mConfirmCredentials) {
-//                finishLogin(authToken);
-//            } else {
-//                finishConfirmCredentials(success);
-//            }
-//        } else {
-//            Log.e(LOGTAG, "onAuthenticationResult: failed to authenticate");
-//            if (mRequestNewAccount) {
-//                // "Please enter a valid username/password.
-//                messageView.setText(getText(R.string.login_activity_loginfail_text_both));
-//            } else {
-//                // "Please enter a valid password." (Used when the
-//                // account is already in the database but the password
-//                // doesn't work.)
-//                messageView.setText(getText(R.string.login_activity_loginfail_text_pwonly));
-//            }
-//        }
-//    }
-//
-//    public void onAuthenticationCancel() {
-//        Log.i(LOGTAG, "onAuthenticationCancel()");
-//
-//        // Our task is complete, so clear it out
-//        mAuthTask = null;
-//
-//        // Hide the progress dialog
-//        hideProgress();
-//    }
-//
-//    /**
-//     * Returns the message to be displayed at the top of the login dialog box.
-//     */
-//    private CharSequence getMessage() {
-//        getString(R.string.app_name);
-//        if (TextUtils.isEmpty(mUsername)) {
-//            // If no username, then we ask the user to log in using an
-//            // appropriate service.
-//            final CharSequence msg = getText(R.string.login_activity_newaccount_text);
-//            return msg;
-//        }
-//        if (TextUtils.isEmpty(mPassword)) {
-//            // We have an account but no password
-//            return getText(R.string.login_activity_loginfail_text_pwmissing);
-//        }
-//        return null;
-//    }
-//
-//    /**
-//     * Shows the progress UI for a lengthy operation.
-//     */
-//    private void showProgress() {
-//        showDialog(0);
-//    }
-//
-//    /**
-//     * Hides the progress UI for a lengthy operation.
-//     */
-//    private void hideProgress() {
-//        if (mProgressDialog != null) {
-//            mProgressDialog.dismiss();
-//            mProgressDialog = null;
-//        }
-//    }
-//
-//    /**
-//     * Represents an asynchronous task used to authenticate a user against the
-//     * SampleSync Service
-//     */
-//    public class UserLoginTask extends AsyncTask<Void, Void, String> {
-//
-//        @Override
-//        protected String doInBackground(Void... params) {
-//            // We do the actual work of authenticating the user
-//            // in the NetworkUtilities class.
-//            try {
-//                return NetworkUtilities.authenticate(mUsername, mPassword);
-//            } catch (Exception ex) {
-//                Log.e(LOGTAG, "UserLoginTask.doInBackground: failed to authenticate");
-//                Log.i(LOGTAG, ex.toString());
-//                return null;
-//            }
-//        }
-//
-//        @Override
-//        protected void onPostExecute(final String authToken) {
-//            // On a successful authentication, call back into the Activity to
-//            // communicate the authToken (or null for an error).
-//            onAuthenticationResult(authToken);
-//        }
-//
-//        @Override
-//        protected void onCancelled() {
-//            // If the action was canceled (by the user clicking the cancel
-//            // button in the progress dialog), then call back into the
-//            // activity to let it know.
-//            onAuthenticationCancel();
-//        }
-//    }
-
 }

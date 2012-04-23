@@ -1,22 +1,8 @@
-/*
- * Copyright (C) 2010 The Android Open Source Project
- *
- * Licensed under the Apache License, Version 2.0 (the "License"); you may not
- * use this file except in compliance with the License. You may obtain a copy of
- * the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
- * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
- * License for the specific language governing permissions and limitations under
- * the License.
- */
-
 package com.adiron.busme.authen;
 
+import java.io.IOException;
 import java.util.ArrayList;
+import java.util.List;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -37,57 +23,92 @@ import android.text.TextUtils;
 import android.util.Log;
 
 /**
- * This class is an implementation of AbstractAccountAuthenticator for
- * authenticating accounts in the com.example.android.samplesync domain. The
- * interesting thing that this class demonstrates is the use of authTokens as
- * part of the authentication process. In the account setup UI, the user enters
- * their username and password. But for our subsequent calls off to the service
- * for syncing, we want to use an authtoken instead - so we're not continually
- * sending the password over the wire. getAuthToken() will be called when
- * SyncAdapter calls AccountManager.blockingGetAuthToken(). When we get called,
- * we need to return the appropriate authToken for the specified account. If we
- * already have an authToken stored in the account, we return that authToken. If
- * we don't, but we do have a username and password, then we'll attempt to talk
- * to the sample service to fetch an authToken. If that fails (or we didn't have
- * a username/password), then we need to prompt the user - so we create an
- * AuthenticatorActivity intent and return that. That will display the dialog
- * that prompts the user for their login information.
+ * 
  */
 class Authenticator extends AbstractAccountAuthenticator {
     private static final String LOGTAG = "Authenticator";
 
-    static final String ACCOUNT_TYPE = "com.adiron.busme.account";
+    /**
+     * The Account Type for Busme Accounts.
+     */
+    public static final String ACCOUNT_TYPE = "com.adiron.busme.account";
     
-	static final String KEY_MUNICIPALITY_URL = "com.adiron.busme.municipality.url";
-	static final String KEY_MUNICIPALITIES = "com.adiron.busme.municipalities";
-	static final String KEY_MUNICIPALITY_URLS = "com.adiron.busme.municipality.urls";
+    /**
+     * The Authentication Token Type for Busme Accounts.
+     */
+	public static final String AUTHTOKEN_TYPE = "com.adiron.busme.WebAuthToken";
 
-	static final String PREF_MUNICIPALITIES = "com.adiron.busme.municipalities";
-	static final String PREF_MUNICIPALITY_URLS = "com.adiron.busme.municipality.urls";
-
-	private static final String KEY_AUTHTOKEN_TYPE = "com.adiron.busme.AuthTokenType";
-
-	public static final String KEY_PASSWORD = "com.adiron.busme.Password";
+	/**
+	 * This is the identifier where we store preference for Busme
+	 * */
 	public static final String PREFERENCES_NAME = "com.adiron.busme";
+	
+	/** 
+	 * This is the identifier which denotes the JSON string containing 
+	 * Municipality IDs and JSON Login URLs.
+	 */
+	public static final String PREF_MUNICIPALITIES = "com.adiron.busme.municipalities";
+
+	// Package relevant Intent and Bundle Keys
+	static final String KEY_MUNICIPALITY_URL = "MunicipalityUrl";
+	static final String KEY_MUNICIPALITY_NAME = "MunicpalityName";
+	static final String KEY_MUNICIPALITIES = "MunicipalityNames";
+	static final String KEY_MUNICIPALITY_URLS = "MunicipalityUrls";
+	static final String KEY_AUTHTOKEN_TYPE = "AuthTokenType";
+	static final String KEY_ACCOUNT_DATA = "AccountData";
+	static final String KEY_ACCOUNT_EMAIL = "Email";
+	static final String KEY_AUTHENTICATOR_ACTION = "Action";
+
+	static final String ACTION_ADD_ACCOUNT = "AddAccount";
+	static final String ACTION_UPDATE_ACCOUNT = "UpdateAccount";
+
+	/**
+	 * We have one login Authenticator. The login Authenticator handles
+     * authentication specifics, such as contacting a server and verifying credentials,
+     * and retrieving an authentication token.
+	 */
+	private static LoginAuthenticator loginAuthenticator;
+
+	/**
+	 * The login Authenticator handles authentication specifics, such as 
+	 * contacting a server and verifying credentials, and retrieving an authentication token. 
+     * The default loginAuthenticator is the WebAuthenticator.
+	 */
+    public static LoginAuthenticator getLoginAuthenticator() {
+		if (loginAuthenticator == null) {
+			loginAuthenticator = new WebAuthenticator();
+		}
+		return loginAuthenticator;
+	}
+
+    /**
+     * Sets the loginAuthenticator for this class/service. The login Authenticator handles
+     * authentication specifics, such as contacting a server and verifying credentials,
+     * and retrieving an authentication token.
+     */
+	public static void setLoginAuthenticator(LoginAuthenticator loginAuthenticator) {
+		Authenticator.loginAuthenticator = loginAuthenticator;
+	}
 
     // Authentication Service context
     private final Service mContext;
 
-    public Authenticator(Service context) {
+	private ArrayList<String> municipalities;
+
+	private ArrayList<String> municipalityUrls;
+
+	public Authenticator(Service context) {
         super(context);
         Log.d(LOGTAG, "new Authenticator(uid="+Binder.getCallingUid()+") for com.adiron.busme");
         mContext = context;
+        getMunicipalityPrefs();
     }
-
-    @Override
-    public Bundle addAccount(AccountAuthenticatorResponse response, String accountType,
-            String authTokenType, String[] requiredFeatures, Bundle loginOptions) {
-        Log.d(LOGTAG, "addAccount(uid=" + Binder.getCallingUid() + ", type=" + accountType + ", tokenType=" + authTokenType + ")");
-
+    
+	private void getMunicipalityPrefs() {
 		SharedPreferences prefs = mContext.getSharedPreferences(PREFERENCES_NAME, Activity.MODE_PRIVATE);
-		String muniUrlString = prefs.getString(PREF_MUNICIPALITIES, "[[\"Syracuse\",\"http://192.168.99.2:3000/muni_admins/sign_in?master_id=4f69cdf5a0490542ec000311\"]]");
-		ArrayList<String> municipalities = new ArrayList<String>();
-		ArrayList<String> municipalityUrls = new ArrayList<String>();
+		String muniUrlString = prefs.getString(PREF_MUNICIPALITIES, "[[\"Syracuse\",\"http://192.168.99.2:3000/muni_admins/sign_in.json?master_id=4f69cdf5a0490542ec000311\"]]");
+		municipalities = new ArrayList<String>();
+		municipalityUrls = new ArrayList<String>();
 		try {
 			JSONTokener tokener = new JSONTokener(muniUrlString);
 			JSONArray array = new JSONArray(tokener);
@@ -100,15 +121,28 @@ class Authenticator extends AbstractAccountAuthenticator {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
+	}
+	/**
+	 * This addAccount sets up the AddAccountActivity to collect data from the user and
+	 * tries to verify it and retrieve an Authentication Token. We only deal with one
+	 * AccountType which is "com.adiron.busme".
+	 */
+    @Override
+    public Bundle addAccount(AccountAuthenticatorResponse response, String accountType,
+            String authTokenType, String[] requiredFeatures, Bundle loginOptions) {
+        Log.d(LOGTAG, "addAccount(uid=" + Binder.getCallingUid() + ", type=" + accountType + ", tokenType=" + authTokenType + ")");
 		
         final Intent intent = new Intent(mContext, AddAccountActivity.class);
         intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         intent.putExtra(AccountManager.KEY_ACCOUNT_AUTHENTICATOR_RESPONSE, response);
         intent.putExtra(AccountManager.KEY_ACCOUNT_TYPE, accountType);
-        intent.putExtra(KEY_MUNICIPALITIES, municipalities);
-        intent.putExtra(KEY_MUNICIPALITY_URLS, municipalityUrls);
-        intent.putExtra("AUTHENTICATOR_ACTION", "addAccount");
+        intent.putExtra(Authenticator.KEY_MUNICIPALITIES, municipalities);
+        intent.putExtra(Authenticator.KEY_MUNICIPALITY_URLS, municipalityUrls);
+        // TODO: This action may come in useful in verification.
+        intent.putExtra(Authenticator.KEY_AUTHENTICATOR_ACTION, Authenticator.ACTION_ADD_ACCOUNT);
+        intent.putExtra(Authenticator.KEY_AUTHENTICATOR_ACTION, Authenticator.ACTION_UPDATE_ACCOUNT);
         
+        // As per Android Framework, sending back a KEY_INTENT will launch an activity.
         final Bundle bundle = new Bundle();
         bundle.putParcelable(AccountManager.KEY_INTENT, intent);
         return bundle;
@@ -131,43 +165,61 @@ class Authenticator extends AbstractAccountAuthenticator {
     public Bundle getAuthToken(AccountAuthenticatorResponse response, Account account,
             String authTokenType, Bundle loginOptions) throws NetworkErrorException {
         Log.v(LOGTAG, "getAuthToken()");
+        final Bundle result = new Bundle();
 
         // If the caller requested an authToken type we don't support, then
         // return an error
-        if (!authTokenType.equals(Constants.AUTHTOKEN_TYPE)) {
-            final Bundle result = new Bundle();
-            result.putInt(AccountManager.KEY_ERROR_CODE, 100);
+        if (!authTokenType.equals(Authenticator.AUTHTOKEN_TYPE)) {
+            result.putInt(AccountManager.KEY_ERROR_CODE, AccountManager.ERROR_CODE_BAD_ARGUMENTS);
             result.putString(AccountManager.KEY_ERROR_MESSAGE, "invalid authTokenType");
             response.onResult(result);
-            //return result;
-            return null;
+            return result;
         }
 
         // Extract the username and password from the Account Manager, and ask
         // the server for an appropriate AuthToken.
-        //final AccountManager am = AccountManager.get(mContext);
-        //final String password = am.getPassword(account);
-        //if (password != null) {
-        final String authToken = NetworkUtilities.authenticate(account.name, "", "");
-            if (!TextUtils.isEmpty(authToken)) {
-                final Bundle result = new Bundle();
+        final AccountManager am = AccountManager.get(mContext);
+        final String password = am.getPassword(account);
+        if (password != null) {
+            final String url = am.getUserData(account, Authenticator.KEY_MUNICIPALITY_URL);
+        	String authToken;
+			try {
+				authToken = getLoginAuthenticator().login(account.name, password, url);
                 result.putString(AccountManager.KEY_ACCOUNT_NAME, account.name);
-                result.putString(AccountManager.KEY_ACCOUNT_TYPE, Constants.ACCOUNT_TYPE);
-                result.putString(AccountManager.KEY_AUTHTOKEN, "");
+                result.putString(AccountManager.KEY_ACCOUNT_TYPE, Authenticator.ACCOUNT_TYPE);
+                result.putString(AccountManager.KEY_AUTHTOKEN, authToken);
                 response.onResult(result);
-                //return result;
-                return null;
-            }
-        //}
+                return result;
+			} catch (SecurityException e) {
+	            result.putInt(AccountManager.KEY_ERROR_CODE, AccountManager.ERROR_CODE_BAD_REQUEST);
+	            result.putString(AccountManager.KEY_ERROR_MESSAGE, e.getMessage());
+	            return result;
+			} catch (IOException e) {
+	            result.putInt(AccountManager.KEY_ERROR_CODE, AccountManager.ERROR_CODE_NETWORK_ERROR);
+	            result.putString(AccountManager.KEY_ERROR_MESSAGE, e.getMessage());
+	            return result;
+			}
+        }
+        
+        ArrayList<String> munis = new ArrayList<String>();
+        munis.add(am.getUserData(account, Authenticator.KEY_MUNICIPALITY_NAME));
+        ArrayList<String> muniUrls = new ArrayList<String>();
+        muniUrls.add(am.getUserData(account, Authenticator.KEY_MUNICIPALITY_URL));
 
         // If we get here, then we couldn't access the user's password - so we
         // need to re-prompt them for their credentials. We do that by creating
         // an intent to display our AuthenticatorActivity panel.
         final Intent intent = new Intent(mContext, AddAccountActivity.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         intent.putExtra(AccountManager.KEY_ACCOUNT_AUTHENTICATOR_RESPONSE, response);
-        intent.putExtra(AccountManager.KEY_ACCOUNT_NAME, account.name);
-        intent.putExtra(KEY_AUTHTOKEN_TYPE, authTokenType);
+        intent.putExtra(Authenticator.KEY_ACCOUNT_EMAIL, am.getUserData(account, Authenticator.KEY_ACCOUNT_EMAIL));
+        intent.putExtra(AccountManager.KEY_ACCOUNT_TYPE, account.type);
+        intent.putExtra(Authenticator.KEY_MUNICIPALITIES, munis);
+        intent.putExtra(Authenticator.KEY_MUNICIPALITY_URLS, muniUrls);
+        // TODO: This action may come in useful in verification.
+        intent.putExtra(Authenticator.KEY_AUTHENTICATOR_ACTION, Authenticator.ACTION_UPDATE_ACCOUNT);
         
+        // As per Android Framework, sending back a KEY_INTENT will launch an activity.
         final Bundle bundle = new Bundle();
         bundle.putParcelable(AccountManager.KEY_INTENT, intent);
         return bundle;
@@ -198,5 +250,5 @@ class Authenticator extends AbstractAccountAuthenticator {
         Log.v(LOGTAG, "updateCredentials()");
         return null;
     }
-
+    
 }

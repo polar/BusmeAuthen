@@ -43,58 +43,63 @@ public final class R {
         public static final int login_activity_spinner_text_view=0x7f030002;
     }
     public static final class string {
-        public static final int app_name=0x7f050000;
-        public static final int authenticator_label=0x7f050012;
-        public static final int authenticator_service=0x7f050001;
+        public static final int app_name=0x7f050004;
+        public static final int authenticator_label=0x7f050016;
+        public static final int authenticator_service=0x7f050005;
         /**  Button for going to the previous screen or step 
          */
-        public static final int back_button_label=0x7f050010;
+        public static final int back_button_label=0x7f050014;
         /**  Button to cancel the current operation 
          */
-        public static final int cancel_button_label=0x7f050011;
-        public static final int check_activity_account_not_found_message=0x7f050018;
-        public static final int check_activity_cancel_button=0x7f050017;
-        public static final int check_activity_header_message=0x7f050016;
-        public static final int login_acitivity_bottom_message_instructions=0x7f050015;
-        public static final int login_activity_cancel_button=0x7f050009;
+        public static final int cancel_button_label=0x7f050015;
+        public static final int check_activity_account_not_found_message=0x7f05001d;
+        public static final int check_activity_cancel_button=0x7f05001c;
+        public static final int check_activity_header_message=0x7f05001b;
+        public static final int check_authen_failed=0x7f050000;
+        public static final int check_okay=0x7f050002;
+        public static final int check_pos_button_label=0x7f050003;
+        public static final int check_server_failed=0x7f050001;
+        public static final int login_acitivity_bottom_message_instructions=0x7f05001a;
+        public static final int login_activity_cancel_button=0x7f05000d;
         /**  Message shown in dialog if the username or password is invalid. 
          */
-        public static final int login_activity_loginfail_cancel=0x7f05000a;
-        public static final int login_activity_loginfail_text_both=0x7f05000b;
+        public static final int login_activity_loginfail_cancel=0x7f05000e;
+        public static final int login_activity_loginfail_text_both=0x7f05000f;
         /**  Message shown in dialog to prompt the user for their password 
          */
-        public static final int login_activity_loginfail_text_pwmissing=0x7f05000d;
+        public static final int login_activity_loginfail_text_pwmissing=0x7f050011;
         /**  Message shown in dialog if the password is invalid 
          */
-        public static final int login_activity_loginfail_text_pwonly=0x7f05000c;
+        public static final int login_activity_loginfail_text_pwonly=0x7f050010;
         /**  Label above username EditText 
          */
-        public static final int login_activity_message_add_account=0x7f050005;
+        public static final int login_activity_message_add_account=0x7f050009;
         /** 
         Message shown if the provided account doesn't support the current
         activity.
     
          */
-        public static final int login_activity_newaccount_text=0x7f05000e;
+        public static final int login_activity_newaccount_text=0x7f050012;
         /**  Label above password EditText 
          */
-        public static final int login_activity_password_label=0x7f050007;
-        public static final int login_activity_perform_button_add=0x7f050014;
+        public static final int login_activity_password_label=0x7f05000b;
+        public static final int login_activity_perform_button_add=0x7f050018;
         /**  Button to sign in after entering username and password 
          */
-        public static final int login_activity_perform_button_signin=0x7f050008;
-        public static final int login_activity_username_label=0x7f050006;
-        public static final int municipality_spinner_label=0x7f050013;
-        public static final int notification_login_error=0x7f050002;
+        public static final int login_activity_perform_button_signin=0x7f05000c;
+        public static final int login_activity_perform_button_update=0x7f050019;
+        public static final int login_activity_username_label=0x7f05000a;
+        public static final int municipality_spinner_label=0x7f050017;
+        public static final int notification_login_error=0x7f050006;
         /**  Button that takes the user to the "sign in" screen 
          */
-        public static final int sign_in_button_label=0x7f05000f;
+        public static final int sign_in_button_label=0x7f050013;
         /**  Message shown in progress dialog while app connects to the server 
          */
-        public static final int ui_activity_authenticating=0x7f050004;
+        public static final int ui_activity_authenticating=0x7f050008;
         /**  Title string for Login activity
          */
-        public static final int ui_activity_title=0x7f050003;
+        public static final int ui_activity_title=0x7f050007;
     }
     public static final class xml {
         public static final int authenticator=0x7f040000;

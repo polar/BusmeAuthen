@@ -62,6 +62,7 @@
         name="authenticator_label">BusmeAuth</string>
     <string name="municipality_spinner_label">Municipality</string>
     <string name="login_activity_perform_button_add">Add Account</string>
+    <string name="login_activity_perform_button_update">Update Account</string>
     <string name="login_acitivity_bottom_message_instructions">Please select your Municipality for which you have an account.</string>
     <string name="check_activity_header_message">Checking Login Credentials</string>
     <string name="check_activity_cancel_button">Cancel</string>
