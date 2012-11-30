@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="verify_authen_failed">Authentication failed.</string>
+    <string name="verify_server_failed">Error contacting authentication server.</string>
+    <string name="verify_okay">Account authenticated.</string>
+    <string name="verify_pos_button_label">OK</string>
+</resources>

@@ -11,98 +11,94 @@ public final class R {
     public static final class attr {
     }
     public static final class drawable {
-        public static final int bus_icon_active=0x7f020000;
-        public static final int busarrow=0x7f020001;
-        public static final int busarrow_highlight=0x7f020002;
-        public static final int busiconeast=0x7f020003;
-        public static final int ic_launcher=0x7f020004;
-        public static final int mappin_end=0x7f020005;
-        public static final int person=0x7f020006;
-        public static final int route_icon=0x7f020007;
-        public static final int route_icon_active=0x7f020008;
+        public static int bus_icon_active=0x7f020000;
+        public static int busarrow=0x7f020001;
+        public static int busarrow_highlight=0x7f020002;
+        public static int busiconeast=0x7f020003;
+        public static int ic_launcher=0x7f020004;
+        public static int mappin_end=0x7f020005;
+        public static int person=0x7f020006;
+        public static int route_icon=0x7f020007;
+        public static int route_icon_active=0x7f020008;
     }
     public static final class id {
-        public static final int buttonsLayout=0x7f06000a;
-        public static final int buttons_center_layout=0x7f060009;
-        public static final int cancelButton=0x7f06000c;
-        public static final int checkCancelButton=0x7f060003;
-        public static final int checkProgressBar=0x7f060002;
-        public static final int emailEditText=0x7f060007;
-        public static final int messageView=0x7f060004;
-        public static final int message_bottom=0x7f06000d;
-        public static final int municipalitySpinner=0x7f060006;
-        public static final int municipalitySpinnerLabel=0x7f060005;
-        public static final int municipalityView=0x7f060001;
-        public static final int passwordEditText=0x7f060008;
-        public static final int performButton=0x7f06000b;
-        public static final int textView1=0x7f060000;
+        public static int buttonsLayout=0x7f060004;
+        public static int buttons_center_layout=0x7f060003;
+        public static int cancelButton=0x7f060006;
+        public static int checkCancelButton=0x7f06000c;
+        public static int checkProgressBar=0x7f06000a;
+        public static int goButton=0x7f06000b;
+        public static int messageView=0x7f060000;
+        public static int message_bottom=0x7f060007;
+        public static int municipalitySpinner=0x7f060002;
+        public static int municipalitySpinnerLabel=0x7f060001;
+        public static int municipalityView=0x7f060009;
+        public static int performButton=0x7f060005;
+        public static int textView1=0x7f060008;
     }
     public static final class layout {
-        public static final int check_activity=0x7f030000;
-        public static final int login_activity=0x7f030001;
-        public static final int login_activity_spinner_text_view=0x7f030002;
+        public static int login_activity=0x7f030000;
+        public static int login_activity_spinner_text_view=0x7f030001;
+        public static int verify_account_activity=0x7f030002;
     }
     public static final class string {
-        public static final int app_name=0x7f050004;
-        public static final int authenticator_label=0x7f050016;
-        public static final int authenticator_service=0x7f050005;
+        public static int app_name=0x7f050000;
+        public static int authenticator_label=0x7f05000e;
+        public static int authenticator_service=0x7f050017;
         /**  Button for going to the previous screen or step 
          */
-        public static final int back_button_label=0x7f050014;
+        public static int back_button_label=0x7f05000c;
         /**  Button to cancel the current operation 
          */
-        public static final int cancel_button_label=0x7f050015;
-        public static final int check_activity_account_not_found_message=0x7f05001d;
-        public static final int check_activity_cancel_button=0x7f05001c;
-        public static final int check_activity_header_message=0x7f05001b;
-        public static final int check_authen_failed=0x7f050000;
-        public static final int check_okay=0x7f050002;
-        public static final int check_pos_button_label=0x7f050003;
-        public static final int check_server_failed=0x7f050001;
-        public static final int login_acitivity_bottom_message_instructions=0x7f05001a;
-        public static final int login_activity_cancel_button=0x7f05000d;
+        public static int cancel_button_label=0x7f05000d;
+        public static int check_activity_account_not_found_message=0x7f050016;
+        public static int check_activity_cancel_button=0x7f050014;
+        public static int check_activity_go_button=0x7f050015;
+        public static int check_activity_header_message=0x7f050013;
+        public static int login_acitivity_bottom_message_instructions=0x7f050012;
+        public static int login_activity_cancel_button=0x7f050005;
         /**  Message shown in dialog if the username or password is invalid. 
          */
-        public static final int login_activity_loginfail_cancel=0x7f05000e;
-        public static final int login_activity_loginfail_text_both=0x7f05000f;
+        public static int login_activity_loginfail_cancel=0x7f050006;
+        public static int login_activity_loginfail_text_both=0x7f050007;
         /**  Message shown in dialog to prompt the user for their password 
          */
-        public static final int login_activity_loginfail_text_pwmissing=0x7f050011;
+        public static int login_activity_loginfail_text_pwmissing=0x7f050009;
         /**  Message shown in dialog if the password is invalid 
          */
-        public static final int login_activity_loginfail_text_pwonly=0x7f050010;
+        public static int login_activity_loginfail_text_pwonly=0x7f050008;
         /**  Label above username EditText 
          */
-        public static final int login_activity_message_add_account=0x7f050009;
+        public static int login_activity_message_add_account=0x7f050001;
         /** 
         Message shown if the provided account doesn't support the current
         activity.
     
          */
-        public static final int login_activity_newaccount_text=0x7f050012;
-        /**  Label above password EditText 
-         */
-        public static final int login_activity_password_label=0x7f05000b;
-        public static final int login_activity_perform_button_add=0x7f050018;
-        /**  Button to sign in after entering username and password 
-         */
-        public static final int login_activity_perform_button_signin=0x7f05000c;
-        public static final int login_activity_perform_button_update=0x7f050019;
-        public static final int login_activity_username_label=0x7f05000a;
-        public static final int municipality_spinner_label=0x7f050017;
-        public static final int notification_login_error=0x7f050006;
+        public static int login_activity_newaccount_text=0x7f05000a;
+        public static int login_activity_password_label=0x7f050003;
+        public static int login_activity_perform_button_add=0x7f050010;
+        public static int login_activity_perform_button_signin=0x7f050004;
+        public static int login_activity_perform_button_update=0x7f050011;
+        public static int login_activity_username_label=0x7f050002;
+        public static int municipality_spinner_label=0x7f05000f;
+        public static int notification_login_error=0x7f050018;
         /**  Button that takes the user to the "sign in" screen 
          */
-        public static final int sign_in_button_label=0x7f050013;
+        public static int sign_in_button_label=0x7f05000b;
         /**  Message shown in progress dialog while app connects to the server 
          */
-        public static final int ui_activity_authenticating=0x7f050008;
+        public static int ui_activity_authenticating=0x7f05001a;
         /**  Title string for Login activity
          */
-        public static final int ui_activity_title=0x7f050007;
+        public static int ui_activity_title=0x7f050019;
+        public static int verify_authen_failed=0x7f05001b;
+        public static int verify_okay=0x7f05001d;
+        public static int verify_pos_button_label=0x7f05001e;
+        public static int verify_server_failed=0x7f05001c;
     }
     public static final class xml {
-        public static final int authenticator=0x7f040000;
-        public static final int syncadapter=0x7f040001;
+        public static int authenticator=0x7f040000;
+        public static int syncadapter=0x7f040001;
     }
 }
