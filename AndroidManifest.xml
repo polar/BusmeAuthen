@@ -33,7 +33,7 @@
             <meta-data android:name="android.content.SyncAdapter"
                 android:resource="@xml/syncadapter" />
         </service>
-        <activity android:name=".AccountActivity"
+        <activity android:name=".LocationAccountActivity"
                   android:label="Busme Authen"
                   android:launchMode="singleTask">
             
